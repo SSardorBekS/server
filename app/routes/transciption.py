@@ -1,14 +1,47 @@
 from fastapi import APIRouter, Depends, File, UploadFile, HTTPException, Depends, Form
+from fastapi.responses import JSONResponse
 from app.models.user import User
 from app.auth.jwt import create_access_token, get_current_user
 from app.db.database import sessions_collection,transcriptions_collection, audio_files_collection
 from app.models.transcription import SessionCreateResponse, SessionEndRequest, TranscriptionSaveRequest, TranscriptionResponse
 from bson import ObjectId
 from datetime import datetime, timedelta
+from pydantic import BaseModel
+from io import BytesIO
 import uuid
 import os
+import openai
+import whisper
 
 app = APIRouter()
+
+
+# OpenAI API konfiguratsiyasi
+openai.api_key = 'YOUR_OPENAI_API_KEY'
+
+
+class TranscriptionResponse(BaseModel):
+    transcription: str
+    
+model = whisper.load_model("base")  # You can use 'base', 'small', etc., depending on your needs.
+
+
+@app.post("/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    # Convert audio file to a format compatible with Whisper
+    audio = await file.read()
+
+    # Temporarily save the audio to disk or use an in-memory buffer
+    with open("temp_audio.webm", "wb") as f:
+        f.write(audio)
+
+    # Perform transcription using Whisper
+    result = model.transcribe("temp_audio.webm")
+
+    # Return transcription text
+    return JSONResponse(content={"transcription": result["text"]})
+
+
 
 
 @app.post("/sessions/create")
